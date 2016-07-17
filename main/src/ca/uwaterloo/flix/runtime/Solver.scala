@@ -527,7 +527,7 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
   private def evalTerm(t: ExecutableAst.Term.Body, env: Env): AnyRef = t match {
     case t: ExecutableAst.Term.Body.Wildcard => null
     case t: ExecutableAst.Term.Body.Var => env.getOrElse(t.ident.name, null)
-    case t: ExecutableAst.Term.Body.Exp => Interpreter.eval(t.e, root, env.toMap)
+    case t: ExecutableAst.Term.Body.Apply => Interpreter.evalCall(root.constants(t.name), Array.empty, root, env.toMap)
   }
 
   /**

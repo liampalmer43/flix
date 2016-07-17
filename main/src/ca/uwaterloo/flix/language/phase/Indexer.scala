@@ -53,7 +53,7 @@ object Indexer {
                   xs :+ i
                 else
                   xs
-              case (xs, (t: Term.Body.Exp, i)) => xs :+ i
+              case (xs, (t: Term.Body.Apply, i)) => xs :+ i
             }
 
             // if one or more terms are determinate then an index would be useful.

@@ -344,7 +344,7 @@ object Interpreter {
   def evalBodyTerm(t: Term.Body, root: Root, env: Map[String, AnyRef]): AnyRef = t match {
     case Term.Body.Wildcard(_, _) => ???
     case Term.Body.Var(x, _, _, _) => env(x.name)
-    case Term.Body.Exp(e, _, _) => eval(e, root, env)
+    case Term.Body.Apply(name, tpe, loc) => evalCall(root.constants(name), Array.empty, root)
   }
 
   def evalCall(defn: Constant, args: Array[AnyRef], root: Root, env0: Map[String, AnyRef] = Map.empty): AnyRef = {

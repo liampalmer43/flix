@@ -719,9 +719,10 @@ object SimplifiedAst {
 
       case class Wildcard(tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
-      case class Var(ident: Name.Ident, v: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
+      case class Var(ident: Name.Ident, offset: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
-      // TODO: Lambda lift?
+      case class ApplyRef(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
+
       case class Exp(e: SimplifiedAst.Expression, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
     }

@@ -195,7 +195,27 @@ object LambdaLift {
         val lterms = terms.map(t => lift(t, m))
         SimplifiedAst.Predicate.Head.Table(sym, lterms, tpe, loc)
     }
-    SimplifiedAst.Constraint.Rule(head, rule.body)
+    SimplifiedAst.Constraint.Rule(head, rule.body.map(b => lift(b, m)))
+  }
+
+  /**
+    * Lifts expressions out of body predicates.
+    */
+  private def lift(p: SimplifiedAst.Predicate.Body, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Predicate.Body = p match {
+    case SimplifiedAst.Predicate.Body.Table(sym, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.Table(sym, terms.map(t => lift(t, m)), tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.ApplyFilter(name, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.ApplyFilter(name, terms.map(t => lift(t, m)), tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms.map(t => lift(t, m)), tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.NotEqual(id1, id2, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.NotEqual(id1, id2, tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.Loop(id, term, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.Loop(id, lift(term, m), tpe, loc)
   }
 
   /**
@@ -206,7 +226,7 @@ object LambdaLift {
 
     case SimplifiedAst.Term.Head.Exp(e, tpe, loc) =>
       // Generate a fresh name for the top-level definition.
-      val name = genSym.freshDefn(List("head"))
+      val freshName = genSym.freshDefn(List("head"))
 
       // Compute the free variables in the hook.
       val free = freeVars(e)
@@ -216,16 +236,16 @@ object LambdaLift {
         case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
       }
       val defnType = Type.Lambda(formals.map(_.tpe), tpe)
-      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), name, formals, e, isSynthetic = true, defnType, loc)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, formals, e, isSynthetic = true, defnType, loc)
 
       // Update the map that holds newly-generated definitions
-      m += (name -> defn)
+      m += (freshName -> defn)
 
       // Return an apply expression calling the generated top-level definition.
       val actuals = free.map {
         case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
       }
-      SimplifiedAst.Term.Head.Apply(name, actuals, tpe, loc)
+      SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
 
     case SimplifiedAst.Term.Head.Apply(originalName, args, tpe, loc) =>
       // Generate a fresh name for the top-level definition.
@@ -255,7 +275,7 @@ object LambdaLift {
 
     case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
       // Generate a fresh name for the top-level definition.
-      val name = genSym.freshDefn(List("head"))
+      val freshName = genSym.freshDefn(List("head"))
 
       // Compute the free variables in the hook.
       val free = args.flatMap(a => freeVars(a))
@@ -268,16 +288,38 @@ object LambdaLift {
         case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
       }
       val defnType = Type.Lambda(formals.map(_.tpe), tpe)
-      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), name, formals, body, isSynthetic = true, defnType, loc)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, formals, body, isSynthetic = true, defnType, loc)
 
       // Update the map that holds newly-generated definitions
-      m += (name -> defn)
+      m += (freshName -> defn)
 
       // Return an apply expression calling the generated top-level definition.
       val actuals = free.map {
         case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
       }
-      SimplifiedAst.Term.Head.Apply(name, actuals, tpe, loc)
+      SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
+  }
+
+  /**
+    * Lifts expressions out of head terms.
+    */
+  private def lift(t: SimplifiedAst.Term.Body, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Body = t match {
+    case SimplifiedAst.Term.Body.Wildcard(tpe, loc) => SimplifiedAst.Term.Body.Wildcard(tpe, loc)
+    case SimplifiedAst.Term.Body.Var(ident, offset, tpe, loc) => SimplifiedAst.Term.Body.Var(ident, offset, tpe, loc)
+    case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc)
+
+    case SimplifiedAst.Term.Body.Exp(e, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val freshName = genSym.freshDefn(List("body"))
+
+      // Construct the body of the top-level definition.
+      val defnType = Type.Lambda(Nil, tpe)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, Nil, e, isSynthetic = true, defnType, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (freshName -> defn)
+
+      SimplifiedAst.Term.Body.ApplyRef(freshName, tpe, loc)
   }
 
   /**

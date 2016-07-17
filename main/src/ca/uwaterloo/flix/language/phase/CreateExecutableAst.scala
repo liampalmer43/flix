@@ -252,6 +252,7 @@ object CreateExecutableAst {
         case (xs, t: SimplifiedAst.Term.Body.Wildcard) => xs
         case (xs, t: SimplifiedAst.Term.Body.Var) => xs + t.ident.name
         case (xs, t: SimplifiedAst.Term.Body.Exp) => xs
+        case (xs, t: SimplifiedAst.Term.Body.ApplyRef) => xs
       }
 
       def toExecutable(sast: SimplifiedAst.Predicate.Body): ExecutableAst.Predicate.Body = sast match {
@@ -306,7 +307,9 @@ object CreateExecutableAst {
     def toExecutable(sast: SimplifiedAst.Term.Body): ExecutableAst.Term.Body = sast match {
       case SimplifiedAst.Term.Body.Wildcard(tpe, loc) => ExecutableAst.Term.Body.Wildcard(tpe, loc)
       case SimplifiedAst.Term.Body.Var(ident, v, tpe, loc) => ExecutableAst.Term.Body.Var(ident, v, tpe, loc)
-      case SimplifiedAst.Term.Body.Exp(e, tpe, loc) => ExecutableAst.Term.Body.Exp(Expression.toExecutable(e), tpe, loc)
+      case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => ExecutableAst.Term.Body.Apply(name, tpe, loc)
+      case SimplifiedAst.Term.Body.Exp(e, tpe, loc) =>
+        throw InternalCompilerException("Impossible. Term should have been eliminated by the simplifier.")
     }
   }
 

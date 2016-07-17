@@ -678,7 +678,7 @@ object ExecutableAst {
 
       case class Var(ident: Name.Ident, v: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
-      case class Exp(e: ExecutableAst.Expression, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
+      case class Apply(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
     }
 
