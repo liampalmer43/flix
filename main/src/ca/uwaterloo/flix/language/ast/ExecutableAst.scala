@@ -669,11 +669,6 @@ object ExecutableAst {
                        tpe: Type,
                        loc: SourceLocation) extends ExecutableAst.Term.Head
 
-      case class ApplyHook(hook: Ast.Hook,
-                           args: Array[ExecutableAst.Term.Head],
-                           tpe: Type,
-                           loc: SourceLocation) extends ExecutableAst.Term.Head
-
     }
 
     sealed trait Body extends ExecutableAst {

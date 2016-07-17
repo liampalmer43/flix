@@ -296,9 +296,7 @@ object CreateExecutableAst {
       case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
         val argsArray = args.map(Term.toExecutable).toArray
         ExecutableAst.Term.Head.Apply(name, argsArray, tpe, loc)
-      case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
-        val argsArray = args.map(Term.toExecutable).toArray
-        ExecutableAst.Term.Head.ApplyHook(hook, argsArray, tpe, loc)
+      case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => throw InternalCompilerException("ApplyHook should have been eliminated.")
     }
 
     def toExecutable(sast: SimplifiedAst.Term.Body): ExecutableAst.Term.Body = sast match {

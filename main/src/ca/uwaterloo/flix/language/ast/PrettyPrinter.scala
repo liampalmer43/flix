@@ -54,7 +54,6 @@ object PrettyPrinter {
     case ExecutableAst.Term.Head.Var(ident, tpe, loc) => sb.append(ident.name)
     case ExecutableAst.Term.Head.Exp(e, tpe, loc) => fmt(e, sb)
     case ExecutableAst.Term.Head.Apply(name, args, tpe, loc) => ???
-    case ExecutableAst.Term.Head.ApplyHook(hook, args, tpe, loc) => ???
   }
 
 }
