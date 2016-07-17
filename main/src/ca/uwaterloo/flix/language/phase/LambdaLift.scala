@@ -40,6 +40,7 @@ object LambdaLift {
       case (name, decl) => name -> lift(decl, m)
     }
     val properties = root.properties.map(p => lift(p, m))
+    val facts = root.facts.map(f => lift(f, m))
 
     // Return the updated AST root.
     root.copy(constants = definitions ++ m, properties = properties)
@@ -169,5 +170,29 @@ object LambdaLift {
 
     visit(exp0)
   }
+
+  /**
+    * Lifts expressions out of facts.
+    */
+  private def lift(fact: SimplifiedAst.Constraint.Fact, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Constraint.Fact = fact.head match {
+    case SimplifiedAst.Predicate.Head.Table(sym, terms, tpe, loc) =>
+      val lterms = terms.map(t => lift(t, m))
+      val lhead = SimplifiedAst.Predicate.Head.Table(sym, lterms, tpe, loc)
+      SimplifiedAst.Constraint.Fact(lhead)
+  }
+
+  /**
+    * Lifts expressions out of head terms.
+    */
+  private def lift(t: SimplifiedAst.Term.Head, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Head = t match {
+    case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, tpe, loc)
+    case SimplifiedAst.Term.Head.Exp(e, tpe, loc) =>
+      ???
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => SimplifiedAst.Term.Head.Apply(name, args, tpe, loc)
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
+      ???
+
+  }
+
 
 }

@@ -685,10 +685,8 @@ object SimplifiedAst {
 
       case class Var(ident: Name.Ident, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
 
-      // TODO: Lambda lift?
       case class Exp(literal: SimplifiedAst.Expression, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
 
-      // TODO: Can we get rid of this?
       case class Apply(name: Symbol.Resolved,
                        args: List[SimplifiedAst.Term.Head],
                        tpe: Type,
@@ -696,7 +694,6 @@ object SimplifiedAst {
 
       }
 
-      // TODO: To be replaced.
       case class ApplyHook(hook: Ast.Hook,
                            args: List[SimplifiedAst.Term.Head],
                            tpe: Type,
