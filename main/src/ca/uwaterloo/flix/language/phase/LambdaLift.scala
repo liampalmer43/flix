@@ -16,8 +16,9 @@
 
 package ca.uwaterloo.flix.language.phase
 
+import ca.uwaterloo.flix.language.ast.Name.Ident
 import ca.uwaterloo.flix.language.ast.SimplifiedAst.Expression
-import ca.uwaterloo.flix.language.ast.{Ast, SimplifiedAst, Symbol}
+import ca.uwaterloo.flix.language.ast.{Ast, Name, SimplifiedAst, SourceLocation, Symbol, Type}
 import ca.uwaterloo.flix.util.InternalCompilerException
 
 import scala.collection.mutable
@@ -46,7 +47,7 @@ object LambdaLift {
 
     // Return the updated AST root.
     val e = System.nanoTime() - t
-    root.copy(constants = definitions ++ m, properties = properties, time = root.time.copy(lambdaLift = e))
+    root.copy(constants = definitions ++ m, properties = properties, facts = facts, time = root.time.copy(lambdaLift = e))
   }
 
   /**
@@ -189,13 +190,78 @@ object LambdaLift {
     */
   private def lift(t: SimplifiedAst.Term.Head, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Head = t match {
     case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, tpe, loc)
-    case SimplifiedAst.Term.Head.Exp(e, tpe, loc) =>
-      ???
-    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => SimplifiedAst.Term.Head.Apply(name, args, tpe, loc)
-    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
-      ???
 
+    case SimplifiedAst.Term.Head.Exp(e, tpe, loc) => SimplifiedAst.Term.Head.Exp(e, tpe, loc) // TODO
+
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => SimplifiedAst.Term.Head.Apply(name, args, tpe, loc)
+
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val name = genSym.freshDefn(List("head"))
+
+      // Compute the free variables in the hook.
+      val free = args.flatMap(a => freeVars(a))
+
+      // Construct the body of the top-level definition.
+      val body = SimplifiedAst.Expression.ApplyHook(hook, args.map(term2exp), tpe, loc)
+
+      // Create the  top-level definition with the fresh name and the apply hook as body.
+      val formals = free.map {
+        case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
+      }
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), name, formals, body, isSynthetic = true, tpe, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (name -> defn)
+
+      // Return an apply expression calling the generated top-level definition.
+      val actuals = free.map {
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
+      }
+      SimplifiedAst.Term.Head.Apply(name, actuals, tpe, loc)
   }
 
+  /**
+    * Returns the free variables in the given head term `t`.
+    */
+  private def freeVars(t: SimplifiedAst.Term.Head): List[(Name.Ident, Type)] = t match {
+    case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => List((ident, tpe))
+    case SimplifiedAst.Term.Head.Exp(exp, tpe, loc) => freeVars(exp)
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => args.flatMap(freeVars)
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => args.flatMap(freeVars)
+  }
+
+  /**
+    * Returns the free variables in the given expression `exp`
+    */
+  private def freeVars(exp: Expression): List[(Ident, Type)] = exp match {
+    case SimplifiedAst.Expression.Unit => Nil
+    case SimplifiedAst.Expression.True => Nil
+    case SimplifiedAst.Expression.False => Nil
+    case SimplifiedAst.Expression.Char(c) => Nil
+    case SimplifiedAst.Expression.Float32(f) => Nil
+    case SimplifiedAst.Expression.Float64(f) => Nil
+    case SimplifiedAst.Expression.Int8(i) => Nil
+    case SimplifiedAst.Expression.Int16(i) => Nil
+    case SimplifiedAst.Expression.Int32(i) => Nil
+    case SimplifiedAst.Expression.Int64(i) => Nil
+    case SimplifiedAst.Expression.BigInt(i) => Nil
+    case SimplifiedAst.Expression.Str(s) => Nil
+    case SimplifiedAst.Expression.Var(ident, offset, tpe, loc) => List((ident, tpe))
+
+    // TODO: Rest
+  }
+
+  /**
+    * Returns an expression corresponding to the given term.
+    */
+  private def term2exp(t: SimplifiedAst.Term.Head): SimplifiedAst.Expression = t match {
+    case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Expression.Var(ident, -1, tpe, loc)
+    case SimplifiedAst.Term.Head.Exp(exp, tpe, loc) => exp
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
+      val exp = SimplifiedAst.Expression.Ref(name, tpe, loc)
+      SimplifiedAst.Expression.Apply(exp, args.map(term2exp), tpe, loc)
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => SimplifiedAst.Expression.ApplyHook(hook, args.map(term2exp), tpe, loc)
+  }
 
 }
