@@ -49,13 +49,26 @@ object VarNumbering {
   }
 
   /**
+    * A regular numberings map which does not take JVM sizes into account.
+    */
+  class StaticNumberingsMap {
+    // TODO
+    private[this] val map: mutable.Map[String, Int] = mutable.Map.empty
+    private[this] var offset = 0
+
+    def get(s: String): Int = ???
+  }
+
+  /**
     * Iterate over all top-level definitions and number all variables
     */
   def number(root: SimplifiedAst.Root): SimplifiedAst.Root = {
     val t = System.nanoTime()
-    val defs = root.constants.map { case (name, defn) => name -> number(defn) }
+    val defns = root.constants.map { case (name, defn) => name -> number(defn) }
+    val facts = root.facts.map(f => number(f))
+    val rules = root.rules.map(r => number(r))
     val e = System.nanoTime() - t
-    root.copy(constants = defs, time = root.time.copy(varNumbering = e))
+    root.copy(constants = defns, facts = facts, rules = rules, time = root.time.copy(varNumbering = e))
   }
 
   /**
@@ -99,7 +112,7 @@ object VarNumbering {
       case SimplifiedAst.Expression.Lambda(args, body, tpe, loc) =>
         throw InternalCompilerException("Lambdas should have been converted to closures and lifted.")
       case SimplifiedAst.Expression.Hook(hook, tpe, loc) => e
-      case mkClosure @ SimplifiedAst.Expression.MkClosureRef(ref, freeVars, tpe, loc) =>
+      case mkClosure@SimplifiedAst.Expression.MkClosureRef(ref, freeVars, tpe, loc) =>
         val numberedFreeVars = freeVars.map {
           case SimplifiedAst.FreeVar(v, _, t) => SimplifiedAst.FreeVar(v, m.get(v.name), t)
         }
@@ -168,6 +181,62 @@ object VarNumbering {
 
     // Update and return the top-level definition
     SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), decl.name, decl.formals, numbered, decl.isSynthetic, decl.tpe, decl.loc)
+  }
+
+  /**
+    * Number each variable in the given fact.
+    */
+  def number(fact: SimplifiedAst.Constraint.Fact): SimplifiedAst.Constraint.Fact = {
+    val m = new StaticNumberingsMap()
+    SimplifiedAst.Constraint.Fact(number(fact.head, m))
+  }
+
+  /**
+    * Number each variable in the given rule.
+    */
+  def number(rule: SimplifiedAst.Constraint.Rule): SimplifiedAst.Constraint.Rule = {
+    val m = new StaticNumberingsMap()
+    SimplifiedAst.Constraint.Rule(number(rule.head, m), rule.body.map(b => number(b, m)))
+  }
+
+  /**
+    * Number each variable in the given head predicate.
+    */
+  private def number(h: SimplifiedAst.Predicate.Head, m: StaticNumberingsMap): SimplifiedAst.Predicate.Head = h match {
+    case SimplifiedAst.Predicate.Head.True(loc) => SimplifiedAst.Predicate.Head.True(loc)
+    case SimplifiedAst.Predicate.Head.False(loc) => SimplifiedAst.Predicate.Head.False(loc)
+    case SimplifiedAst.Predicate.Head.Table(sym, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Head.Table(sym, terms.map(t => number(t, m)), tpe, loc)
+  }
+
+  /**
+    * Number each variable in the given body predicate.
+    */
+  private def number(b: SimplifiedAst.Predicate.Body, m: StaticNumberingsMap): SimplifiedAst.Predicate.Body = b match {
+    case SimplifiedAst.Predicate.Body.Table(sym, terms, tpe, loc) => SimplifiedAst.Predicate.Body.Table(sym, terms.map(t => number(t, m)), tpe, loc)
+    case SimplifiedAst.Predicate.Body.ApplyFilter(name, terms, tpe, loc) => SimplifiedAst.Predicate.Body.ApplyFilter(name, terms.map(t => number(t, m)), tpe, loc)
+    case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) => SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms.map(t => number(t, m)), tpe, loc)
+    case SimplifiedAst.Predicate.Body.NotEqual(id1, id2, tpe, loc) => ???
+    case SimplifiedAst.Predicate.Body.Loop(id, term, tpe, loc) => ???
+  }
+
+  /**
+    * Number each variable in the given head term.
+    */
+  private def number(t: SimplifiedAst.Term.Head, m: StaticNumberingsMap): SimplifiedAst.Term.Head = t match {
+    case SimplifiedAst.Term.Head.Var(ident, _, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, m.get(ident.name), tpe, loc)
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => SimplifiedAst.Term.Head.Apply(name, args.map(t => number(t, m)), tpe, loc)
+    case _ => throw InternalCompilerException(s"Unexpected term $t.")
+  }
+
+  /**
+    * Number each variable in the given body term.
+    */
+  private def number(t: SimplifiedAst.Term.Body, m: StaticNumberingsMap): SimplifiedAst.Term.Body = t match {
+    case SimplifiedAst.Term.Body.Wildcard(tpe, loc) => SimplifiedAst.Term.Body.Wildcard(tpe, loc)
+    case SimplifiedAst.Term.Body.Var(ident, _, tpe, loc) => SimplifiedAst.Term.Body.Var(ident, m.get(ident.name), tpe, loc)
+    case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc)
+    case _ => throw InternalCompilerException(s"Unexpected term $t.")
   }
 
 }
