@@ -660,9 +660,9 @@ object ExecutableAst {
 
     object Head {
 
-      case class Var(ident: Name.Ident, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
 
-      case class Apply(name: Symbol.Resolved, args: Array[Name.Ident], tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
+      case class Apply(name: Symbol.Resolved, args: Array[Name.Ident], varNums: Array[scala.Int], tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
 
     }
 
@@ -676,9 +676,9 @@ object ExecutableAst {
 
       case class Wildcard(tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
-      case class Var(ident: Name.Ident, v: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
-      case class Apply(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
+      case class ApplyRef(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
     }
 

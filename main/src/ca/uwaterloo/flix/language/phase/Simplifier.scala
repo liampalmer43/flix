@@ -367,7 +367,7 @@ object Simplifier {
 
   object Term {
     def simplify(tast: TypedAst.Term.Head)(implicit genSym: GenSym): SimplifiedAst.Term.Head = tast match {
-      case TypedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, tpe, loc)
+      case TypedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, -1, tpe, loc)
       case TypedAst.Term.Head.Lit(lit, tpe, loc) => SimplifiedAst.Term.Head.Exp(Literal.simplify(lit), tpe, loc)
       case TypedAst.Term.Head.Tag(enum, tag, t, tpe, loc) => SimplifiedAst.Term.Head.Exp(toExp(tast), tpe, loc)
       case TypedAst.Term.Head.Tuple(elms, tpe, loc) => SimplifiedAst.Term.Head.Exp(toExp(tast), tpe, loc)

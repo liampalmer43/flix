@@ -691,7 +691,7 @@ object SimplifiedAst {
 
     object Head {
 
-      case class Var(ident: Name.Ident, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
 
       case class Exp(literal: SimplifiedAst.Expression, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
 
@@ -719,7 +719,7 @@ object SimplifiedAst {
 
       case class Wildcard(tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
-      case class Var(ident: Name.Ident, offset: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
       case class ApplyRef(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 

@@ -291,13 +291,17 @@ object CreateExecutableAst {
 
   object Term {
     def toExecutable(sast: SimplifiedAst.Term.Head): ExecutableAst.Term.Head = sast match {
-      case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => ExecutableAst.Term.Head.Var(ident, tpe, loc)
+      case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => ExecutableAst.Term.Head.Var(ident, varNum, tpe, loc)
       case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
         val as = args.map {
-          case SimplifiedAst.Term.Head.Var(ident, _, _) => ident
+          case SimplifiedAst.Term.Head.Var(ident, _, _, _) => ident
           case t => throw InternalCompilerException(s"Impossible. Term ``$t'' should have been eliminated by the simplifier.")
         }
-        ExecutableAst.Term.Head.Apply(name, as.toArray, tpe, loc)
+        val varNums = args.map {
+          case SimplifiedAst.Term.Head.Var(_, varNum, _, _) => varNum
+          case t => throw InternalCompilerException(s"Impossible. Term ``$t'' should have been eliminated by the simplifier.")
+        }
+        ExecutableAst.Term.Head.Apply(name, as.toArray, varNums.toArray, tpe, loc)
       case SimplifiedAst.Term.Head.Exp(literal, tpe, loc) =>
         throw InternalCompilerException("Impossible. Term should have been eliminated by the simplifier.")
       case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
@@ -307,7 +311,7 @@ object CreateExecutableAst {
     def toExecutable(sast: SimplifiedAst.Term.Body): ExecutableAst.Term.Body = sast match {
       case SimplifiedAst.Term.Body.Wildcard(tpe, loc) => ExecutableAst.Term.Body.Wildcard(tpe, loc)
       case SimplifiedAst.Term.Body.Var(ident, v, tpe, loc) => ExecutableAst.Term.Body.Var(ident, v, tpe, loc)
-      case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => ExecutableAst.Term.Body.Apply(name, tpe, loc)
+      case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => ExecutableAst.Term.Body.ApplyRef(name, tpe, loc)
       case SimplifiedAst.Term.Body.Exp(e, tpe, loc) =>
         throw InternalCompilerException("Impossible. Term should have been eliminated by the simplifier.")
     }

@@ -222,7 +222,7 @@ object LambdaLift {
     * Lifts expressions out of head terms.
     */
   private def lift(t: SimplifiedAst.Term.Head, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Head = t match {
-    case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, tpe, loc)
+    case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc)
 
     case SimplifiedAst.Term.Head.Exp(e, tpe, loc) =>
       // Generate a fresh name for the top-level definition.
@@ -243,7 +243,7 @@ object LambdaLift {
 
       // Return an apply expression calling the generated top-level definition.
       val actuals = free.map {
-        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, -1, argType, SourceLocation.Unknown)
       }
       SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
 
@@ -269,7 +269,7 @@ object LambdaLift {
 
       // Return an apply expression calling the generated top-level definition.
       val actuals = free.map {
-        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, -1, argType, SourceLocation.Unknown)
       }
       SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
 
@@ -295,7 +295,7 @@ object LambdaLift {
 
       // Return an apply expression calling the generated top-level definition.
       val actuals = free.map {
-        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, -1, argType, SourceLocation.Unknown)
       }
       SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
   }
@@ -326,7 +326,7 @@ object LambdaLift {
     * Returns the free variables in the given head term `t`.
     */
   private def freeVars(t: SimplifiedAst.Term.Head): List[(Name.Ident, Type)] = t match {
-    case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => List((ident, tpe))
+    case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => List((ident, tpe))
     case SimplifiedAst.Term.Head.Exp(exp, tpe, loc) => freeVars(exp)
     case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => args.flatMap(freeVars)
     case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => args.flatMap(freeVars)
@@ -369,7 +369,7 @@ object LambdaLift {
     * Returns an expression corresponding to the given term.
     */
   private def term2exp(t: SimplifiedAst.Term.Head): SimplifiedAst.Expression = t match {
-    case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Expression.Var(ident, -1, tpe, loc)
+    case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => SimplifiedAst.Expression.Var(ident, varNum, tpe, loc)
     case SimplifiedAst.Term.Head.Exp(exp, tpe, loc) => exp
     case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
       SimplifiedAst.Expression.ApplyRef(name, args.map(term2exp), tpe, loc)
