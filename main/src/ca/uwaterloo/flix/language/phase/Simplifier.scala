@@ -357,9 +357,9 @@ object Simplifier {
         case TypedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
           SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms map Term.simplify, tpe, loc)
         case TypedAst.Predicate.Body.NotEqual(ident1, ident2, tpe, loc) =>
-          SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, tpe, loc)
+          SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, -1, -1, tpe, loc)
         case TypedAst.Predicate.Body.Loop(ident, term, tpe, loc) =>
-          SimplifiedAst.Predicate.Body.Loop(ident, Term.simplify(term), tpe, loc)
+          SimplifiedAst.Predicate.Body.Loop(ident, -1, Term.simplify(term), tpe, loc)
       }
     }
 

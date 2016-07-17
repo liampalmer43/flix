@@ -278,12 +278,12 @@ object CreateExecutableAst {
         case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
           val termsArray = terms.map(Term.toExecutable).toArray
           ExecutableAst.Predicate.Body.ApplyHookFilter(hook, termsArray, freeVars(terms), tpe, loc)
-        case SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, tpe, loc) =>
+        case SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, varNum1, varNum2, tpe, loc) =>
           val freeVars = Set(ident1.name, ident2.name)
-          ExecutableAst.Predicate.Body.NotEqual(ident1, ident2, freeVars, tpe, loc)
-        case SimplifiedAst.Predicate.Body.Loop(ident, term, tpe, loc) =>
+          ExecutableAst.Predicate.Body.NotEqual(ident1, ident2, varNum1, varNum2, freeVars, tpe, loc)
+        case SimplifiedAst.Predicate.Body.Loop(ident, varNum, term, tpe, loc) =>
           val freeVars = Set.empty[String] // TODO
-          ExecutableAst.Predicate.Body.Loop(ident, Term.toExecutable(term), freeVars, tpe, loc)
+          ExecutableAst.Predicate.Body.Loop(ident, varNum, Term.toExecutable(term), freeVars, tpe, loc)
       }
     }
 

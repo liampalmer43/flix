@@ -52,11 +52,17 @@ object VarNumbering {
     * A regular numberings map which does not take JVM sizes into account.
     */
   class StaticNumberingsMap {
-    // TODO
-    private[this] val map: mutable.Map[String, Int] = mutable.Map.empty
-    private[this] var offset = 0
+    private val map: mutable.Map[String, Int] = mutable.Map.empty
+    private var count = 0
 
-    def get(s: String): Int = ???
+    def get(s: String): Int = map.get(s) match {
+      case None =>
+        count += 1
+        val id = count
+        map(s) = id
+        id
+      case Some(id) => id
+    }
   }
 
   /**
@@ -216,8 +222,8 @@ object VarNumbering {
     case SimplifiedAst.Predicate.Body.Table(sym, terms, tpe, loc) => SimplifiedAst.Predicate.Body.Table(sym, terms.map(t => number(t, m)), tpe, loc)
     case SimplifiedAst.Predicate.Body.ApplyFilter(name, terms, tpe, loc) => SimplifiedAst.Predicate.Body.ApplyFilter(name, terms.map(t => number(t, m)), tpe, loc)
     case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) => SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms.map(t => number(t, m)), tpe, loc)
-    case SimplifiedAst.Predicate.Body.NotEqual(id1, id2, tpe, loc) => ???
-    case SimplifiedAst.Predicate.Body.Loop(id, term, tpe, loc) => ???
+    case SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, _, _, tpe, loc) => SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, m.get(ident1.name), m.get(ident2.name), tpe, loc)
+    case SimplifiedAst.Predicate.Body.Loop(ident, _, term, tpe, loc) => SimplifiedAst.Predicate.Body.Loop(ident, m.get(ident.name), term, tpe, loc)
   }
 
   /**

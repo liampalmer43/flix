@@ -669,10 +669,13 @@ object SimplifiedAst {
 
       case class NotEqual(ident1: Name.Ident,
                           ident2: Name.Ident,
+                          varNum1: scala.Int,
+                          varNum2: scala.Int,
                           tpe: Type,
                           loc: SourceLocation) extends SimplifiedAst.Predicate.Body
 
       case class Loop(ident: Name.Ident,
+                      varNum: scala.Int,
                       term: SimplifiedAst.Term.Head,
                       tpe: Type,
                       loc: SourceLocation) extends SimplifiedAst.Predicate.Body

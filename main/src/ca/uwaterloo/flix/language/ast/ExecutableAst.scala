@@ -636,11 +636,14 @@ object ExecutableAst {
 
       case class NotEqual(ident1: Name.Ident,
                           ident2: Name.Ident,
+                          varNum1: scala.Int,
+                          varNum2: scala.Int,
                           freeVars: Set[String],
                           tpe: Type,
                           loc: SourceLocation) extends ExecutableAst.Predicate.Body
 
       case class Loop(ident: Name.Ident,
+                      varNum: scala.Int,
                       term: ExecutableAst.Term.Head,
                       freeVars: Set[String],
                       tpe: Type,

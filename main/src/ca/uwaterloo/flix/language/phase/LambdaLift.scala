@@ -211,11 +211,11 @@ object LambdaLift {
     case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
       SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms.map(t => lift(t, m)), tpe, loc)
 
-    case SimplifiedAst.Predicate.Body.NotEqual(id1, id2, tpe, loc) =>
-      SimplifiedAst.Predicate.Body.NotEqual(id1, id2, tpe, loc)
+    case SimplifiedAst.Predicate.Body.NotEqual(id1, id2, varNum1, varNum2, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.NotEqual(id1, id2, varNum1, varNum2, tpe, loc)
 
-    case SimplifiedAst.Predicate.Body.Loop(id, term, tpe, loc) =>
-      SimplifiedAst.Predicate.Body.Loop(id, lift(term, m), tpe, loc)
+    case SimplifiedAst.Predicate.Body.Loop(id, varNum, term, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.Loop(id, varNum, lift(term, m), tpe, loc)
   }
 
   /**
