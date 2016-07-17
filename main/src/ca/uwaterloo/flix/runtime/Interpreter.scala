@@ -335,7 +335,7 @@ object Interpreter {
       val evalArgs = new Array[AnyRef](args.length)
       var i = 0
       while (i < evalArgs.length) {
-        evalArgs(i) = evalHeadTerm(args(i), root, env)
+        evalArgs(i) = env(args(i).name)
         i = i + 1
       }
       evalCall(defn, evalArgs, root, env)

@@ -578,6 +578,24 @@ class TestSolver extends FunSuite {
 
   test("Transfer05") {
     val s =
+      """rel A(x: Int, y: Int)
+        |rel B(x: Int)
+        |
+        |def x(x: Int): Int = x + 1
+        |
+        |A(x(x), x) :- B(x).
+        |B(21).
+      """.stripMargin
+
+    val flix = new Flix().addStr(s).setOptions(opts)
+    val model = flix.solve().get
+
+    val A = model.getRelation("A").toSet
+    assert(A contains List(Value.mkInt32(22), Value.mkInt32(21)))
+  }
+
+  test("Transfer06") {
+    val s =
       """rel A(x: Int, y: Int, z: Int)
         |rel B(x: Int)
         |
