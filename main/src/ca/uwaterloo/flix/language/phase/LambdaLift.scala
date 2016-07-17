@@ -44,10 +44,11 @@ object LambdaLift {
     }
     val properties = root.properties.map(p => lift(p, m))
     val facts = root.facts.map(f => lift(f, m))
+    val rules = root.rules.map(r => lift(r, m))
 
     // Return the updated AST root.
     val e = System.nanoTime() - t
-    root.copy(constants = definitions ++ m, properties = properties, facts = facts, time = root.time.copy(lambdaLift = e))
+    root.copy(constants = definitions ++ m, properties = properties, facts = facts, rules = rules, time = root.time.copy(lambdaLift = e))
   }
 
   /**
@@ -186,14 +187,47 @@ object LambdaLift {
   }
 
   /**
+    * Lifts expressions out of rules.
+    */
+  private def lift(rule: SimplifiedAst.Constraint.Rule, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Constraint.Rule = {
+    val head = rule.head match {
+      case SimplifiedAst.Predicate.Head.Table(sym, terms, tpe, loc) =>
+        val lterms = terms.map(t => lift(t, m))
+        SimplifiedAst.Predicate.Head.Table(sym, lterms, tpe, loc)
+    }
+    SimplifiedAst.Constraint.Rule(head, rule.body)
+  }
+
+  /**
     * Lifts expressions out of head terms.
     */
   private def lift(t: SimplifiedAst.Term.Head, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Head = t match {
     case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, tpe, loc)
 
-    case SimplifiedAst.Term.Head.Exp(e, tpe, loc) => SimplifiedAst.Term.Head.Exp(e, tpe, loc) // TODO
+    case SimplifiedAst.Term.Head.Exp(e, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val name = genSym.freshDefn(List("head"))
 
-    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => SimplifiedAst.Term.Head.Apply(name, args, tpe, loc)
+      // Compute the free variables in the hook.
+      val free = freeVars(e)
+
+      // Create the  top-level definition with the fresh name and the apply hook as body.
+      val formals = free.map {
+        case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
+      }
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), name, formals, e, isSynthetic = true, tpe, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (name -> defn)
+
+      // Return an apply expression calling the generated top-level definition.
+      val actuals = free.map {
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, argType, SourceLocation.Unknown)
+      }
+      SimplifiedAst.Term.Head.Apply(name, actuals, tpe, loc)
+
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
+      SimplifiedAst.Term.Head.Apply(name, args.map(a => lift(a, m)), tpe, loc)
 
     case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
       // Generate a fresh name for the top-level definition.
@@ -247,7 +281,19 @@ object LambdaLift {
     case SimplifiedAst.Expression.Int64(i) => Nil
     case SimplifiedAst.Expression.BigInt(i) => Nil
     case SimplifiedAst.Expression.Str(s) => Nil
+    case SimplifiedAst.Expression.LoadBool(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.LoadInt8(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.LoadInt16(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.LoadInt32(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.StoreBool(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.StoreInt8(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.StoreInt16(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.StoreInt32(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
     case SimplifiedAst.Expression.Var(ident, offset, tpe, loc) => List((ident, tpe))
+    case SimplifiedAst.Expression.Ref(name, tpe, loc) => Nil
+
+    case SimplifiedAst.Expression.Tag(enum, tag, e, tpe, loc) => freeVars(e)
+    case SimplifiedAst.Expression.Tuple(elms, tpe, loc) => elms.flatMap(freeVars)
 
     // TODO: Rest
   }

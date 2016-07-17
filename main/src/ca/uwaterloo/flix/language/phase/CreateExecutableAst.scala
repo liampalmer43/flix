@@ -291,12 +291,13 @@ object CreateExecutableAst {
   object Term {
     def toExecutable(sast: SimplifiedAst.Term.Head): ExecutableAst.Term.Head = sast match {
       case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => ExecutableAst.Term.Head.Var(ident, tpe, loc)
-      case SimplifiedAst.Term.Head.Exp(literal, tpe, loc) =>
-        ExecutableAst.Term.Head.Exp(Expression.toExecutable(literal), tpe, loc)
       case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
         val argsArray = args.map(Term.toExecutable).toArray
         ExecutableAst.Term.Head.Apply(name, argsArray, tpe, loc)
-      case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => throw InternalCompilerException("ApplyHook should have been eliminated.")
+      case SimplifiedAst.Term.Head.Exp(literal, tpe, loc) =>
+        throw InternalCompilerException("Exp should have been eliminated.")
+      case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
+        throw InternalCompilerException("ApplyHook should have been eliminated.")
     }
 
     def toExecutable(sast: SimplifiedAst.Term.Body): ExecutableAst.Term.Body = sast match {

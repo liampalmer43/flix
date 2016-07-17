@@ -662,8 +662,6 @@ object ExecutableAst {
 
       case class Var(ident: Name.Ident, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
 
-      case class Exp(e: ExecutableAst.Expression, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
-
       case class Apply(name: Symbol.Resolved,
                        args: Array[ExecutableAst.Term.Head],
                        tpe: Type,

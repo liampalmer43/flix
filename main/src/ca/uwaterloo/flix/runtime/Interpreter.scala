@@ -330,7 +330,6 @@ object Interpreter {
     */
   def evalHeadTerm(t: Term.Head, root: Root, env: Map[String, AnyRef]): AnyRef = t match {
     case Term.Head.Var(x, _, _) => env(x.name)
-    case Term.Head.Exp(e, _, _) => eval(e, root, env)
     case Term.Head.Apply(name, args, _, _) =>
       val defn = root.constants(name)
       val evalArgs = new Array[AnyRef](args.length)
