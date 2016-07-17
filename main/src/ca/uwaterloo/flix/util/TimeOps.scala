@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 Magnus Madsen
+ * Copyright 2016 Magnus Madsen
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,13 @@
  * limitations under the License.
  */
 
-package ca.uwaterloo.flix
+package ca.uwaterloo.flix.util
 
-import ca.uwaterloo.flix.language.LanguageSuite
-import ca.uwaterloo.flix.runtime.RuntimeSuite
-import ca.uwaterloo.flix.util.UtilSuite
+object TimeOps {
 
-import org.scalatest.{ParallelTestExecution, Suites}
+  /**
+    * Converts the given number of nanoseconds `l` into human readable string representation.
+    */
+  def toSeconds(l: Long): String = f"${l.toDouble / 1000000000.0}%3.1f"
 
-class TestAll extends Suites(
-  new LanguageSuite,
-  new RuntimeSuite,
-  new UtilSuite,
-  new TestMain,
-  new TestExamples
-) with ParallelTestExecution {
-  /* left empty */
 }

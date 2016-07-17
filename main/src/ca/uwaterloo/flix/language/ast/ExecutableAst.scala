@@ -70,7 +70,7 @@ object ExecutableAst {
 
     case class Lattice(sym: Symbol.TableSym,
                        keys: Array[ExecutableAst.Attribute],
-                       values: Array[ExecutableAst.Attribute],
+                       value: ExecutableAst.Attribute,
                        loc: SourceLocation) extends ExecutableAst.Table
 
   }
@@ -106,6 +106,26 @@ object ExecutableAst {
   }
 
   sealed trait Expression extends ExecutableAst {
+
+    /**
+      * Returns a list of all the universally quantified variables in this expression.
+      */
+    def getQuantifiers: List[Expression.Var] = this match {
+      case Expression.Universal(params, _, _) => params.map {
+        case Ast.FormalParam(ident, tpe) => Expression.Var(ident, -1, tpe, SourceLocation.Unknown)
+      }
+      case _ => Nil
+    }
+
+    /**
+      * Returns this expression with all universal quantifiers stripped.
+      */
+    def peelQuantifiers: Expression = this match {
+      case Expression.Existential(params, exp, loc) => exp.peelQuantifiers
+      case Expression.Universal(params, exp, loc) => exp.peelQuantifiers
+      case _ => this
+    }
+
     def tpe: Type
 
     def loc: SourceLocation
@@ -560,6 +580,14 @@ object ExecutableAst {
     sealed trait Head extends ExecutableAst.Predicate
 
     object Head {
+
+      case class True(loc: SourceLocation) extends ExecutableAst.Predicate.Head {
+        def tpe: Type = Type.Predicate(Nil)
+      }
+
+      case class False(loc: SourceLocation) extends ExecutableAst.Predicate.Head {
+        def tpe: Type = Type.Predicate(Nil)
+      }
 
       case class Table(sym: Symbol.TableSym,
                        terms: Array[ExecutableAst.Term.Head],
