@@ -392,7 +392,7 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
   private def evalLoop(rule: Rule, ps: List[Predicate.Body.Loop], env: Env, interp: Interpretation): Unit = ps match {
     case Nil => evalFilter(rule, rule.filters, env, interp)
     case Predicate.Body.Loop(name, varNum, term, _, _, _) :: rest =>
-      val value = Value.cast2set(Interpreter.evalHeadTerm(term, root, env.toMap))
+      val value = Value.cast2set(evalHeadTerm(term, root, env.toMap))
       for (x <- value) {
         val newRow = env.clone()
         newRow.update(name.name, Value.cast2flix(x))
@@ -413,7 +413,7 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
       val args = new Array[AnyRef](pred.terms.length)
       var i = 0
       while (i < args.length) {
-        args(i) = Interpreter.evalBodyTerm(pred.terms(i), root, env.toMap)
+        args(i) = env(pred.terms(i).name)
         i = i + 1
       }
       val result = Interpreter.evalCall(defn, args, root, env.toMap)
@@ -434,7 +434,7 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
       val args = new Array[AnyRef](pred.terms.length)
       var i = 0
       while (i < args.length) {
-        args(i) = Interpreter.evalBodyTerm(pred.terms(i), root, env.toMap)
+        args(i) = env(pred.terms(i).name)
         i = i + 1
       }
 
@@ -480,13 +480,29 @@ class Solver(val root: ExecutableAst.Root, options: Options) {
       val fact = new Array[AnyRef](p.arity)
       var i = 0
       while (i < fact.length) {
-        fact(i) = Interpreter.evalHeadTerm(terms(i), root, env.toMap)
+        fact(i) = evalHeadTerm(terms(i), root, env.toMap)
         i = i + 1
       }
 
       interp += ((p.sym, fact))
     case Predicate.Head.True(loc) => // nop
     case Predicate.Head.False(loc) => throw RuleException(s"The integrity rule defined at ${loc.format} is violated.", loc)
+  }
+
+  /**
+    * Evaluates the given head term `t` under the given environment `env0`
+    */
+  def evalHeadTerm(t: Term.Head, root: Root, env: Map[String, AnyRef]): AnyRef = t match {
+    case Term.Head.Var(x, varNum, _, _) => env(x.name)
+    case Term.Head.Apply(name, args, varNums, _, _) =>
+      val defn = root.constants(name)
+      val evalArgs = new Array[AnyRef](args.length)
+      var i = 0
+      while (i < evalArgs.length) {
+        evalArgs(i) = env(args(i).name)
+        i = i + 1
+      }
+      Interpreter.evalCall(defn, evalArgs, root, env)
   }
 
   /**

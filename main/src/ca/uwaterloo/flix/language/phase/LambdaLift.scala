@@ -205,9 +205,11 @@ object LambdaLift {
     case SimplifiedAst.Predicate.Body.Table(sym, terms, tpe, loc) =>
       SimplifiedAst.Predicate.Body.Table(sym, terms.map(t => lift(t, m)), tpe, loc)
 
+      // TODO: Need to lift these.
     case SimplifiedAst.Predicate.Body.ApplyFilter(name, terms, tpe, loc) =>
       SimplifiedAst.Predicate.Body.ApplyFilter(name, terms.map(t => lift(t, m)), tpe, loc)
 
+    // TODO: Need to lift these.
     case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
       SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms.map(t => lift(t, m)), tpe, loc)
 

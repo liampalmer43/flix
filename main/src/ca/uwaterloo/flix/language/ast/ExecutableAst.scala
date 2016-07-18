@@ -623,14 +623,14 @@ object ExecutableAst {
       }
 
       case class ApplyFilter(name: Symbol.Resolved,
-                             terms: Array[ExecutableAst.Term.Body],
-                             freeVars: Set[String],
+                             terms: Array[Name.Ident],
+                             freeVars: Set[String], // TODO: Compute directly from terms.
                              tpe: Type.Lambda,
                              loc: SourceLocation) extends ExecutableAst.Predicate.Body
 
       case class ApplyHookFilter(hook: Ast.Hook,
-                                 terms: Array[ExecutableAst.Term.Body],
-                                 freeVars: Set[String],
+                                 terms: Array[Name.Ident],
+                                 freeVars: Set[String], // TODO: Compute directly from terms.
                                  tpe: Type.Lambda,
                                  loc: SourceLocation) extends ExecutableAst.Predicate.Body
 
