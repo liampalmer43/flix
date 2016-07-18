@@ -329,37 +329,22 @@ object Interpreter {
     * Evaluates the given head term `t` under the given environment `env0`
     */
   def evalHeadTerm(t: Term.Head, root: Root, env: Map[String, AnyRef]): AnyRef = t match {
-    case Term.Head.Var(x, _, _) => env(x.name)
-    case Term.Head.Exp(e, _, _) => eval(e, root, env)
-    case Term.Head.Apply(name, args, _, _) =>
+    case Term.Head.Var(x, varNum, _, _) => env(x.name)
+    case Term.Head.Apply(name, args, varNums, _, _) =>
       val defn = root.constants(name)
       val evalArgs = new Array[AnyRef](args.length)
       var i = 0
       while (i < evalArgs.length) {
-        evalArgs(i) = evalHeadTerm(args(i), root, env)
+        evalArgs(i) = env(args(i).name)
         i = i + 1
       }
       evalCall(defn, evalArgs, root, env)
-    case Term.Head.ApplyHook(hook, args, _, _) =>
-      val evalArgs = new Array[AnyRef](args.length)
-      var i = 0
-      while (i < evalArgs.length) {
-        evalArgs(i) = evalHeadTerm(args(i), root, env)
-        i = i + 1
-      }
-      hook match {
-        case Ast.Hook.Safe(name, inv, _) =>
-          val wargs: Array[IValue] = evalArgs.map(new WrappedValue(_))
-          inv(wargs).getUnsafeRef
-        case Ast.Hook.Unsafe(name, inv, _) =>
-          inv(evalArgs)
-      }
   }
 
   def evalBodyTerm(t: Term.Body, root: Root, env: Map[String, AnyRef]): AnyRef = t match {
     case Term.Body.Wildcard(_, _) => ???
     case Term.Body.Var(x, _, _, _) => env(x.name)
-    case Term.Body.Exp(e, _, _) => eval(e, root, env)
+    case Term.Body.ApplyRef(name, tpe, loc) => evalCall(root.constants(name), Array.empty, root)
   }
 
   def evalCall(defn: Constant, args: Array[AnyRef], root: Root, env0: Map[String, AnyRef] = Map.empty): AnyRef = {

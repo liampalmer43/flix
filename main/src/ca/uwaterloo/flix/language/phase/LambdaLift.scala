@@ -16,8 +16,9 @@
 
 package ca.uwaterloo.flix.language.phase
 
+import ca.uwaterloo.flix.language.ast.Name.Ident
 import ca.uwaterloo.flix.language.ast.SimplifiedAst.Expression
-import ca.uwaterloo.flix.language.ast.{Ast, SimplifiedAst, Symbol}
+import ca.uwaterloo.flix.language.ast.{Ast, Name, SimplifiedAst, SourceLocation, Symbol, Type}
 import ca.uwaterloo.flix.util.InternalCompilerException
 
 import scala.collection.mutable
@@ -33,6 +34,8 @@ object LambdaLift {
     * Performs lambda lifting on all definitions in the AST.
     */
   def lift(root: SimplifiedAst.Root)(implicit genSym: GenSym): SimplifiedAst.Root = {
+    val t = System.nanoTime()
+
     // A mutable map to hold lambdas that are lifted to the top level.
     val m: TopLevel = mutable.Map.empty
 
@@ -40,9 +43,12 @@ object LambdaLift {
       case (name, decl) => name -> lift(decl, m)
     }
     val properties = root.properties.map(p => lift(p, m))
+    val facts = root.facts.map(f => lift(f, m))
+    val rules = root.rules.map(r => lift(r, m))
 
     // Return the updated AST root.
-    root.copy(constants = definitions ++ m, properties = properties)
+    val e = System.nanoTime() - t
+    root.copy(constants = definitions ++ m, properties = properties, facts = facts, rules = rules, time = root.time.copy(lambdaLift = e))
   }
 
   /**
@@ -168,6 +174,206 @@ object LambdaLift {
     }
 
     visit(exp0)
+  }
+
+  /**
+    * Lifts expressions out of facts.
+    */
+  private def lift(fact: SimplifiedAst.Constraint.Fact, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Constraint.Fact = fact.head match {
+    case SimplifiedAst.Predicate.Head.Table(sym, terms, tpe, loc) =>
+      val lterms = terms.map(t => lift(t, m))
+      val lhead = SimplifiedAst.Predicate.Head.Table(sym, lterms, tpe, loc)
+      SimplifiedAst.Constraint.Fact(lhead)
+  }
+
+  /**
+    * Lifts expressions out of rules.
+    */
+  private def lift(rule: SimplifiedAst.Constraint.Rule, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Constraint.Rule = {
+    val head = rule.head match {
+      case SimplifiedAst.Predicate.Head.Table(sym, terms, tpe, loc) =>
+        val lterms = terms.map(t => lift(t, m))
+        SimplifiedAst.Predicate.Head.Table(sym, lterms, tpe, loc)
+    }
+    SimplifiedAst.Constraint.Rule(head, rule.body.map(b => lift(b, m)))
+  }
+
+  /**
+    * Lifts expressions out of body predicates.
+    */
+  private def lift(p: SimplifiedAst.Predicate.Body, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Predicate.Body = p match {
+    case SimplifiedAst.Predicate.Body.Table(sym, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.Table(sym, terms.map(t => lift(t, m)), tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.ApplyFilter(name, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.ApplyFilter(name, terms.map(t => lift(t, m)), tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms.map(t => lift(t, m)), tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.NotEqual(id1, id2, varNum1, varNum2, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.NotEqual(id1, id2, varNum1, varNum2, tpe, loc)
+
+    case SimplifiedAst.Predicate.Body.Loop(id, varNum, term, tpe, loc) =>
+      SimplifiedAst.Predicate.Body.Loop(id, varNum, lift(term, m), tpe, loc)
+  }
+
+  /**
+    * Lifts expressions out of head terms.
+    */
+  private def lift(t: SimplifiedAst.Term.Head, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Head = t match {
+    case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc)
+
+    case SimplifiedAst.Term.Head.Exp(e, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val freshName = genSym.freshDefn(List("head"))
+
+      // Compute the free variables in the hook.
+      val free = freeVars(e)
+
+      // Create the  top-level definition with the fresh name and the apply hook as body.
+      val formals = free.map {
+        case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
+      }
+      val defnType = Type.Lambda(formals.map(_.tpe), tpe)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, formals, e, isSynthetic = true, defnType, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (freshName -> defn)
+
+      // Return an apply expression calling the generated top-level definition.
+      val actuals = free.map {
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, -1, argType, SourceLocation.Unknown)
+      }
+      SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
+
+    case SimplifiedAst.Term.Head.Apply(originalName, args, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val freshName = genSym.freshDefn(List("head"))
+
+      // Compute the free variables in the hook.
+      val free = args.flatMap(a => freeVars(a))
+
+      // Construct the body of the top-level definition.
+      val body = SimplifiedAst.Expression.ApplyRef(originalName, args.map(term2exp), tpe, loc)
+
+      // Create the  top-level definition with the fresh name and the apply hook as body.
+      val formals = free.map {
+        case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
+      }
+      val defnType = Type.Lambda(formals.map(_.tpe), tpe)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, formals, body, isSynthetic = true, defnType, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (freshName -> defn)
+
+      // Return an apply expression calling the generated top-level definition.
+      val actuals = free.map {
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, -1, argType, SourceLocation.Unknown)
+      }
+      SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
+
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val freshName = genSym.freshDefn(List("head"))
+
+      // Compute the free variables in the hook.
+      val free = args.flatMap(a => freeVars(a))
+
+      // Construct the body of the top-level definition.
+      val body = SimplifiedAst.Expression.ApplyHook(hook, args.map(term2exp), tpe, loc)
+
+      // Create the  top-level definition with the fresh name and the apply hook as body.
+      val formals = free.map {
+        case (argName, argType) => SimplifiedAst.FormalArg(argName, argType)
+      }
+      val defnType = Type.Lambda(formals.map(_.tpe), tpe)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, formals, body, isSynthetic = true, defnType, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (freshName -> defn)
+
+      // Return an apply expression calling the generated top-level definition.
+      val actuals = free.map {
+        case (argName, argType) => SimplifiedAst.Term.Head.Var(argName, -1, argType, SourceLocation.Unknown)
+      }
+      SimplifiedAst.Term.Head.Apply(freshName, actuals, tpe, loc)
+  }
+
+  /**
+    * Lifts expressions out of head terms.
+    */
+  private def lift(t: SimplifiedAst.Term.Body, m: TopLevel)(implicit genSym: GenSym): SimplifiedAst.Term.Body = t match {
+    case SimplifiedAst.Term.Body.Wildcard(tpe, loc) => SimplifiedAst.Term.Body.Wildcard(tpe, loc)
+    case SimplifiedAst.Term.Body.Var(ident, offset, tpe, loc) => SimplifiedAst.Term.Body.Var(ident, offset, tpe, loc)
+    case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc)
+
+    case SimplifiedAst.Term.Body.Exp(e, tpe, loc) =>
+      // Generate a fresh name for the top-level definition.
+      val freshName = genSym.freshDefn(List("body"))
+
+      // Construct the body of the top-level definition.
+      val defnType = Type.Lambda(Nil, tpe)
+      val defn = SimplifiedAst.Definition.Constant(Ast.Annotations(Nil), freshName, Nil, e, isSynthetic = true, defnType, loc)
+
+      // Update the map that holds newly-generated definitions
+      m += (freshName -> defn)
+
+      SimplifiedAst.Term.Body.ApplyRef(freshName, tpe, loc)
+  }
+
+  /**
+    * Returns the free variables in the given head term `t`.
+    */
+  private def freeVars(t: SimplifiedAst.Term.Head): List[(Name.Ident, Type)] = t match {
+    case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => List((ident, tpe))
+    case SimplifiedAst.Term.Head.Exp(exp, tpe, loc) => freeVars(exp)
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) => args.flatMap(freeVars)
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => args.flatMap(freeVars)
+  }
+
+  /**
+    * Returns the free variables in the given expression `exp`
+    */
+  private def freeVars(exp: Expression): List[(Ident, Type)] = exp match {
+    case SimplifiedAst.Expression.Unit => Nil
+    case SimplifiedAst.Expression.True => Nil
+    case SimplifiedAst.Expression.False => Nil
+    case SimplifiedAst.Expression.Char(c) => Nil
+    case SimplifiedAst.Expression.Float32(f) => Nil
+    case SimplifiedAst.Expression.Float64(f) => Nil
+    case SimplifiedAst.Expression.Int8(i) => Nil
+    case SimplifiedAst.Expression.Int16(i) => Nil
+    case SimplifiedAst.Expression.Int32(i) => Nil
+    case SimplifiedAst.Expression.Int64(i) => Nil
+    case SimplifiedAst.Expression.BigInt(i) => Nil
+    case SimplifiedAst.Expression.Str(s) => Nil
+    case SimplifiedAst.Expression.LoadBool(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.LoadInt8(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.LoadInt16(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.LoadInt32(e, offset) => freeVars(e)
+    case SimplifiedAst.Expression.StoreBool(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.StoreInt8(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.StoreInt16(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.StoreInt32(e1, offset, e2) => freeVars(e1) ::: freeVars(e2)
+    case SimplifiedAst.Expression.Var(ident, offset, tpe, loc) => List((ident, tpe))
+    case SimplifiedAst.Expression.Ref(name, tpe, loc) => Nil
+
+    case SimplifiedAst.Expression.Tag(enum, tag, e, tpe, loc) => freeVars(e)
+    case SimplifiedAst.Expression.Tuple(elms, tpe, loc) => elms.flatMap(freeVars)
+
+    // TODO: Rest
+  }
+
+  /**
+    * Returns an expression corresponding to the given term.
+    */
+  private def term2exp(t: SimplifiedAst.Term.Head): SimplifiedAst.Expression = t match {
+    case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => SimplifiedAst.Expression.Var(ident, varNum, tpe, loc)
+    case SimplifiedAst.Term.Head.Exp(exp, tpe, loc) => exp
+    case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
+      SimplifiedAst.Expression.ApplyRef(name, args.map(term2exp), tpe, loc)
+    case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) => SimplifiedAst.Expression.ApplyHook(hook, args.map(term2exp), tpe, loc)
   }
 
 }

@@ -131,8 +131,7 @@ object CreateExecutableAst {
         ExecutableAst.Table.Relation(symbol, attributesArray, loc)
       case SimplifiedAst.Table.Lattice(symbol, keys, value, loc) =>
         val keysArray = keys.map(CreateExecutableAst.toExecutable).toArray
-        val valuesArray = Array(CreateExecutableAst.toExecutable(value))
-        ExecutableAst.Table.Lattice(symbol, keysArray, valuesArray, loc)
+        ExecutableAst.Table.Lattice(symbol, keysArray, CreateExecutableAst.toExecutable(value), loc)
     }
   }
 
@@ -239,6 +238,8 @@ object CreateExecutableAst {
 
     object Head {
       def toExecutable(sast: SimplifiedAst.Predicate.Head): ExecutableAst.Predicate.Head = sast match {
+        case SimplifiedAst.Predicate.Head.True(loc) => ExecutableAst.Predicate.Head.True(loc)
+        case SimplifiedAst.Predicate.Head.False(loc) => ExecutableAst.Predicate.Head.False(loc)
         case SimplifiedAst.Predicate.Head.Table(name, terms, tpe, loc) =>
           ExecutableAst.Predicate.Head.Table(name, terms.map(Term.toExecutable).toArray, tpe, loc)
       }
@@ -251,6 +252,7 @@ object CreateExecutableAst {
         case (xs, t: SimplifiedAst.Term.Body.Wildcard) => xs
         case (xs, t: SimplifiedAst.Term.Body.Var) => xs + t.ident.name
         case (xs, t: SimplifiedAst.Term.Body.Exp) => xs
+        case (xs, t: SimplifiedAst.Term.Body.ApplyRef) => xs
       }
 
       def toExecutable(sast: SimplifiedAst.Predicate.Body): ExecutableAst.Predicate.Body = sast match {
@@ -276,12 +278,12 @@ object CreateExecutableAst {
         case SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
           val termsArray = terms.map(Term.toExecutable).toArray
           ExecutableAst.Predicate.Body.ApplyHookFilter(hook, termsArray, freeVars(terms), tpe, loc)
-        case SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, tpe, loc) =>
+        case SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, varNum1, varNum2, tpe, loc) =>
           val freeVars = Set(ident1.name, ident2.name)
-          ExecutableAst.Predicate.Body.NotEqual(ident1, ident2, freeVars, tpe, loc)
-        case SimplifiedAst.Predicate.Body.Loop(ident, term, tpe, loc) =>
+          ExecutableAst.Predicate.Body.NotEqual(ident1, ident2, varNum1, varNum2, freeVars, tpe, loc)
+        case SimplifiedAst.Predicate.Body.Loop(ident, varNum, term, tpe, loc) =>
           val freeVars = Set.empty[String] // TODO
-          ExecutableAst.Predicate.Body.Loop(ident, Term.toExecutable(term), freeVars, tpe, loc)
+          ExecutableAst.Predicate.Body.Loop(ident, varNum, Term.toExecutable(term), freeVars, tpe, loc)
       }
     }
 
@@ -289,21 +291,29 @@ object CreateExecutableAst {
 
   object Term {
     def toExecutable(sast: SimplifiedAst.Term.Head): ExecutableAst.Term.Head = sast match {
-      case SimplifiedAst.Term.Head.Var(ident, tpe, loc) => ExecutableAst.Term.Head.Var(ident, tpe, loc)
-      case SimplifiedAst.Term.Head.Exp(literal, tpe, loc) =>
-        ExecutableAst.Term.Head.Exp(Expression.toExecutable(literal), tpe, loc)
+      case SimplifiedAst.Term.Head.Var(ident, varNum, tpe, loc) => ExecutableAst.Term.Head.Var(ident, varNum, tpe, loc)
       case SimplifiedAst.Term.Head.Apply(name, args, tpe, loc) =>
-        val argsArray = args.map(Term.toExecutable).toArray
-        ExecutableAst.Term.Head.Apply(name, argsArray, tpe, loc)
+        val as = args.map {
+          case SimplifiedAst.Term.Head.Var(ident, _, _, _) => ident
+          case t => throw InternalCompilerException(s"Impossible. Term ``$t'' should have been eliminated by the simplifier.")
+        }
+        val varNums = args.map {
+          case SimplifiedAst.Term.Head.Var(_, varNum, _, _) => varNum
+          case t => throw InternalCompilerException(s"Impossible. Term ``$t'' should have been eliminated by the simplifier.")
+        }
+        ExecutableAst.Term.Head.Apply(name, as.toArray, varNums.toArray, tpe, loc)
+      case SimplifiedAst.Term.Head.Exp(literal, tpe, loc) =>
+        throw InternalCompilerException("Impossible. Term should have been eliminated by the simplifier.")
       case SimplifiedAst.Term.Head.ApplyHook(hook, args, tpe, loc) =>
-        val argsArray = args.map(Term.toExecutable).toArray
-        ExecutableAst.Term.Head.ApplyHook(hook, argsArray, tpe, loc)
+        throw InternalCompilerException("Impossible. Term should have been eliminated by the simplifier.")
     }
 
     def toExecutable(sast: SimplifiedAst.Term.Body): ExecutableAst.Term.Body = sast match {
       case SimplifiedAst.Term.Body.Wildcard(tpe, loc) => ExecutableAst.Term.Body.Wildcard(tpe, loc)
       case SimplifiedAst.Term.Body.Var(ident, v, tpe, loc) => ExecutableAst.Term.Body.Var(ident, v, tpe, loc)
-      case SimplifiedAst.Term.Body.Exp(e, tpe, loc) => ExecutableAst.Term.Body.Exp(Expression.toExecutable(e), tpe, loc)
+      case SimplifiedAst.Term.Body.ApplyRef(name, tpe, loc) => ExecutableAst.Term.Body.ApplyRef(name, tpe, loc)
+      case SimplifiedAst.Term.Body.Exp(e, tpe, loc) =>
+        throw InternalCompilerException("Impossible. Term should have been eliminated by the simplifier.")
     }
   }
 

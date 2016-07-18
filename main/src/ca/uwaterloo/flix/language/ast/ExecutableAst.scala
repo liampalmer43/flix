@@ -70,7 +70,7 @@ object ExecutableAst {
 
     case class Lattice(sym: Symbol.TableSym,
                        keys: Array[ExecutableAst.Attribute],
-                       values: Array[ExecutableAst.Attribute],
+                       value: ExecutableAst.Attribute,
                        loc: SourceLocation) extends ExecutableAst.Table
 
   }
@@ -106,6 +106,26 @@ object ExecutableAst {
   }
 
   sealed trait Expression extends ExecutableAst {
+
+    /**
+      * Returns a list of all the universally quantified variables in this expression.
+      */
+    def getQuantifiers: List[Expression.Var] = this match {
+      case Expression.Universal(params, _, _) => params.map {
+        case Ast.FormalParam(ident, tpe) => Expression.Var(ident, -1, tpe, SourceLocation.Unknown)
+      }
+      case _ => Nil
+    }
+
+    /**
+      * Returns this expression with all universal quantifiers stripped.
+      */
+    def peelQuantifiers: Expression = this match {
+      case Expression.Existential(params, exp, loc) => exp.peelQuantifiers
+      case Expression.Universal(params, exp, loc) => exp.peelQuantifiers
+      case _ => this
+    }
+
     def tpe: Type
 
     def loc: SourceLocation
@@ -561,6 +581,14 @@ object ExecutableAst {
 
     object Head {
 
+      case class True(loc: SourceLocation) extends ExecutableAst.Predicate.Head {
+        def tpe: Type = Type.Predicate(Nil)
+      }
+
+      case class False(loc: SourceLocation) extends ExecutableAst.Predicate.Head {
+        def tpe: Type = Type.Predicate(Nil)
+      }
+
       case class Table(sym: Symbol.TableSym,
                        terms: Array[ExecutableAst.Term.Head],
                        tpe: Type.Predicate,
@@ -608,11 +636,14 @@ object ExecutableAst {
 
       case class NotEqual(ident1: Name.Ident,
                           ident2: Name.Ident,
+                          varNum1: scala.Int,
+                          varNum2: scala.Int,
                           freeVars: Set[String],
                           tpe: Type,
                           loc: SourceLocation) extends ExecutableAst.Predicate.Body
 
       case class Loop(ident: Name.Ident,
+                      varNum: scala.Int,
                       term: ExecutableAst.Term.Head,
                       freeVars: Set[String],
                       tpe: Type,
@@ -632,19 +663,9 @@ object ExecutableAst {
 
     object Head {
 
-      case class Var(ident: Name.Ident, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
 
-      case class Exp(e: ExecutableAst.Expression, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
-
-      case class Apply(name: Symbol.Resolved,
-                       args: Array[ExecutableAst.Term.Head],
-                       tpe: Type,
-                       loc: SourceLocation) extends ExecutableAst.Term.Head
-
-      case class ApplyHook(hook: Ast.Hook,
-                           args: Array[ExecutableAst.Term.Head],
-                           tpe: Type,
-                           loc: SourceLocation) extends ExecutableAst.Term.Head
+      case class Apply(name: Symbol.Resolved, args: Array[Name.Ident], varNums: Array[scala.Int], tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Head
 
     }
 
@@ -658,9 +679,9 @@ object ExecutableAst {
 
       case class Wildcard(tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
-      case class Var(ident: Name.Ident, v: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
-      case class Exp(e: ExecutableAst.Expression, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
+      case class ApplyRef(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends ExecutableAst.Term.Body
 
     }
 

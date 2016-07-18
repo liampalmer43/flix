@@ -633,6 +633,14 @@ object SimplifiedAst {
 
     object Head {
 
+      case class True(loc: SourceLocation) extends SimplifiedAst.Predicate.Head {
+        def tpe: Type = Type.Predicate(Nil)
+      }
+
+      case class False(loc: SourceLocation) extends SimplifiedAst.Predicate.Head {
+        def tpe: Type = Type.Predicate(Nil)
+      }
+
       case class Table(sym: Symbol.TableSym,
                        terms: List[SimplifiedAst.Term.Head],
                        tpe: Type.Predicate,
@@ -661,10 +669,13 @@ object SimplifiedAst {
 
       case class NotEqual(ident1: Name.Ident,
                           ident2: Name.Ident,
+                          varNum1: scala.Int,
+                          varNum2: scala.Int,
                           tpe: Type,
                           loc: SourceLocation) extends SimplifiedAst.Predicate.Body
 
       case class Loop(ident: Name.Ident,
+                      varNum: scala.Int,
                       term: SimplifiedAst.Term.Head,
                       tpe: Type,
                       loc: SourceLocation) extends SimplifiedAst.Predicate.Body
@@ -683,12 +694,10 @@ object SimplifiedAst {
 
     object Head {
 
-      case class Var(ident: Name.Ident, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
 
-      // TODO: Lambda lift?
       case class Exp(literal: SimplifiedAst.Expression, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Head
 
-      // TODO: Can we get rid of this?
       case class Apply(name: Symbol.Resolved,
                        args: List[SimplifiedAst.Term.Head],
                        tpe: Type,
@@ -696,7 +705,6 @@ object SimplifiedAst {
 
       }
 
-      // TODO: To be replaced.
       case class ApplyHook(hook: Ast.Hook,
                            args: List[SimplifiedAst.Term.Head],
                            tpe: Type,
@@ -714,9 +722,10 @@ object SimplifiedAst {
 
       case class Wildcard(tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
-      case class Var(ident: Name.Ident, v: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
+      case class Var(ident: Name.Ident, varNum: scala.Int, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
-      // TODO: Lambda lift?
+      case class ApplyRef(name: Symbol.Resolved, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
+
       case class Exp(e: SimplifiedAst.Expression, tpe: Type, loc: SourceLocation) extends SimplifiedAst.Term.Body
 
     }

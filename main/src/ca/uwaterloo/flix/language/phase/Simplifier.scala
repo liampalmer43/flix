@@ -29,6 +29,8 @@ import ca.uwaterloo.flix.language.ast._
 object Simplifier {
 
   def simplify(tast: TypedAst.Root)(implicit genSym: GenSym): SimplifiedAst.Root = {
+    val t = System.nanoTime()
+
     val constants = tast.constants.map { case (k, v) => k -> Definition.simplify(v) }
     val lattices = tast.lattices.map { case (k, v) => k -> Definition.simplify(v) }
     val collections = tast.tables.map { case (k, v) => k -> Table.simplify(v) }
@@ -38,7 +40,8 @@ object Simplifier {
     val properties = tast.properties.map { p => simplify(p) }
     val time = tast.time
 
-    SimplifiedAst.Root(constants, lattices, collections, indexes, facts, rules, properties, time)
+    val e = System.nanoTime() - t
+    SimplifiedAst.Root(constants, lattices, collections, indexes, facts, rules, properties, time.copy(simplifier = e))
   }
 
   object Table {
@@ -338,6 +341,8 @@ object Simplifier {
 
     object Head {
       def simplify(tast: TypedAst.Predicate.Head)(implicit genSym: GenSym): SimplifiedAst.Predicate.Head = tast match {
+        case TypedAst.Predicate.Head.True(loc) => SimplifiedAst.Predicate.Head.True(loc)
+        case TypedAst.Predicate.Head.False(loc) => SimplifiedAst.Predicate.Head.False(loc)
         case TypedAst.Predicate.Head.Table(sym, terms, tpe, loc) =>
           SimplifiedAst.Predicate.Head.Table(sym, terms map Term.simplify, tpe, loc)
       }
@@ -352,9 +357,9 @@ object Simplifier {
         case TypedAst.Predicate.Body.ApplyHookFilter(hook, terms, tpe, loc) =>
           SimplifiedAst.Predicate.Body.ApplyHookFilter(hook, terms map Term.simplify, tpe, loc)
         case TypedAst.Predicate.Body.NotEqual(ident1, ident2, tpe, loc) =>
-          SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, tpe, loc)
+          SimplifiedAst.Predicate.Body.NotEqual(ident1, ident2, -1, -1, tpe, loc)
         case TypedAst.Predicate.Body.Loop(ident, term, tpe, loc) =>
-          SimplifiedAst.Predicate.Body.Loop(ident, Term.simplify(term), tpe, loc)
+          SimplifiedAst.Predicate.Body.Loop(ident, -1, Term.simplify(term), tpe, loc)
       }
     }
 
@@ -362,7 +367,7 @@ object Simplifier {
 
   object Term {
     def simplify(tast: TypedAst.Term.Head)(implicit genSym: GenSym): SimplifiedAst.Term.Head = tast match {
-      case TypedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, tpe, loc)
+      case TypedAst.Term.Head.Var(ident, tpe, loc) => SimplifiedAst.Term.Head.Var(ident, -1, tpe, loc)
       case TypedAst.Term.Head.Lit(lit, tpe, loc) => SimplifiedAst.Term.Head.Exp(Literal.simplify(lit), tpe, loc)
       case TypedAst.Term.Head.Tag(enum, tag, t, tpe, loc) => SimplifiedAst.Term.Head.Exp(toExp(tast), tpe, loc)
       case TypedAst.Term.Head.Tuple(elms, tpe, loc) => SimplifiedAst.Term.Head.Exp(toExp(tast), tpe, loc)
